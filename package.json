@@ -1,0 +1,14 @@
+{
+  "name": "simple-scraper",
+  "version": "1.0.0",
+  "description": "Simple web scraper with GitHub Actions and MongoDB",
+  "main": "scraper.js",
+  "scripts": {
+    "scrape": "node scraper.js",
+    "import": "node local-import.js"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "mongodb": "^4.17.2"
+  }
+}
