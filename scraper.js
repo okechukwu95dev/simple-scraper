@@ -1,37 +1,39 @@
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+require('dotenv').config();
+const crypto = require('crypto');
+const zlib   = require('zlib');
+const axios  = require('axios');
+const fs     = require('fs');
+const path   = require('path');
 
-// Simple function to scrape quotes from a test website
+// encryption setup
+const algorithm = 'aes-256-ctr';
+const secretKey = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+function encrypt(buffer) {
+  const iv     = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(algorithm, secretKey, iv);
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  return {
+    iv: iv.toString('hex'),
+    content: encrypted.toString('hex')
+  };
+}
+
 async function scrapeQuotes() {
   console.log('Starting scrape...');
-
   try {
-    // This is a public test site for web scraping
     const response = await axios.get('https://quotes.toscrape.com/');
+    const html     = response.data;
+    const quotes   = [];
+    const blocks   = html.split('<div class="quote"');
 
-    // Extract quotes using simple string manipulation
-    const html = response.data;
-    const quotes = [];
-
-    // Very basic parsing (in real project you'd use cheerio or similar)
-    const quoteBlocks = html.split('<div class="quote"');
-
-    for (let i = 1; i < quoteBlocks.length; i++) {
-      const block = quoteBlocks[i];
-
-      // Extract the text
-      const textMatch = block.match(/<span class="text"[^>]*>(.*?)<\/span>/);
-      const text = textMatch ? textMatch[1].replace(/["″]/g, '') : null;
-
-      // Extract the author
-      const authorMatch = block.match(/<small class="author"[^>]*>(.*?)<\/small>/);
-      const author = authorMatch ? authorMatch[1] : null;
-
-      // Extract tags (optional enhancement)
-      const tagsMatch = block.match(/<meta class="keywords"[^>]*content="([^"]*)"[^>]*>/);
-      const tags = tagsMatch ? tagsMatch[1].split(',') : [];
-
+    for (let i = 1; i < blocks.length; i++) {
+      const block = blocks[i];
+      const textM = block.match(/<span class="text"[^>]*>(.*?)<\/span>/);
+      const authM = block.match(/<small class="author"[^>]*>(.*?)<\/small>/);
+      const tagsM = block.match(/<meta class="keywords"[^>]*content="([^"]*)"[^>]*>/);
+      const text  = textM ? textM[1].replace(/["″]/g, '') : null;
+      const author= authM ? authM[1] : null;
+      const tags  = tagsM ? tagsM[1].split(',') : [];
       if (text && author) {
         quotes.push({
           text,
@@ -43,23 +45,23 @@ async function scrapeQuotes() {
     }
 
     console.log(`Found ${quotes.length} quotes`);
-
-    // Create data directory if it doesn't exist
     const dataDir = path.join(process.cwd(), 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir);
-    }
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 
-    // Save to a file with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filePath = path.join(dataDir, `quotes-${timestamp}.json`);
+    const filePath  = path.join(dataDir, `quotes-${timestamp}.json`);
 
-    fs.writeFileSync(filePath, JSON.stringify(quotes, null, 2));
-    console.log(`Data saved to ${filePath}`);
+    // serialize → compress → encrypt → write
+    const jsonData   = JSON.stringify(quotes, null, 2);
+    const compressed = zlib.gzipSync(Buffer.from(jsonData));
+    const payload    = encrypt(compressed);
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2));
+
+    console.log(`Encrypted data saved to ${filePath}`);
   } catch (error) {
     console.error('Error scraping data:', error);
     process.exit(1);
   }
 }
-// Run the scraper
+
 scrapeQuotes();
