@@ -25,11 +25,20 @@ async function scrapeQuotes() {
       const text = textMatch ? textMatch[1].replace(/["″]/g, '') : null;
 
       // Extract the author
-      const authorMatch = block.match(/<small class="author">(.*?)<\/small>/);
+      const authorMatch = block.match(/<small class="author"[^>]*>(.*?)<\/small>/);
       const author = authorMatch ? authorMatch[1] : null;
 
+      // Extract tags (optional enhancement)
+      const tagsMatch = block.match(/<meta class="keywords"[^>]*content="([^"]*)"[^>]*>/);
+      const tags = tagsMatch ? tagsMatch[1].split(',') : [];
+
       if (text && author) {
-        quotes.push({ text, author, scrapedAt: new Date().toISOString() });
+        quotes.push({
+          text,
+          author,
+          tags,
+          scrapedAt: new Date().toISOString()
+        });
       }
     }
 
@@ -45,7 +54,6 @@ async function scrapeQuotes() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filePath = path.join(dataDir, `quotes-${timestamp}.json`);
 
-
     fs.writeFileSync(filePath, JSON.stringify(quotes, null, 2));
     console.log(`Data saved to ${filePath}`);
   } catch (error) {
@@ -53,6 +61,5 @@ async function scrapeQuotes() {
     process.exit(1);
   }
 }
-
 // Run the scraper
 scrapeQuotes();
