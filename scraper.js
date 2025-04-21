@@ -45,6 +45,7 @@ async function scrapeQuotes() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filePath = path.join(dataDir, `quotes-${timestamp}.json`);
 
+
     fs.writeFileSync(filePath, JSON.stringify(quotes, null, 2));
     console.log(`Data saved to ${filePath}`);
   } catch (error) {
